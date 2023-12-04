@@ -15,6 +15,12 @@
             "cwd": "03/aoc_03",
             "request": "launch",
             "type": "dart"
+        },
+        {
+            "name": "aoc_04",
+            "cwd": "04/aoc_04",
+            "request": "launch",
+            "type": "dart"
         }
     ]
 }
