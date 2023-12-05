@@ -20,5 +20,5 @@ ProcessingFunction firstPart = (garden) {
 };
 
 ProcessingFunction secondPart = (garden) {
-  return garden.getMinLocationFromRanges();
+  return garden.getStartRangesOfLocationForSeeds().reduce(min);
 };

@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:collection';
 
 class MappingValues {
   final int destinationRangeStart;
@@ -19,7 +19,7 @@ abstract class Mapper {
   List<Range> mapRange(Range range);
 }
 
-abstract class GenericMapper implements Mapper {
+class GenericMapper implements Mapper {
   final List<MappingValues> mappingValuesList;
 
   GenericMapper(this.mappingValuesList);
@@ -42,54 +42,96 @@ abstract class GenericMapper implements Mapper {
 
   @override
   List<Range> mapRange(Range range) {
-    throw UnimplementedError();
-    /*
-    List<List<Range>> ranges = [];
+    List<Range> rangesToReturn = [];
+    var rangesToCheck = Queue<Range>();
+
+    rangesToCheck.add(range);
 
     for (var mv in mappingValuesList) {
-      var range = [
+      var rangesToAddForChecking = <Range>[];
+
+      final sourceRange = [
         mv.sourceRangeStart,
         mv.sourceRangeStart + mv.rangeLength - 1,
       ];
 
-      if (isInRange(range, source)) {
-        return mv.destinationRangeStart + (source - mv.sourceRangeStart);
+      while (rangesToCheck.isNotEmpty) {
+        final range = rangesToCheck.removeFirst();
+        final [start, end] = range;
+
+        bool isLeftInRange = isInRange(sourceRange, start);
+        bool isRightInRange = isInRange(sourceRange, end);
+
+        // Case fully contained
+        if (isLeftInRange && isRightInRange) {
+          // return only one range
+          rangesToReturn.add([
+            mv.destinationRangeStart + (start - mv.sourceRangeStart), // start
+            mv.destinationRangeStart + (end - mv.sourceRangeStart), // end
+          ]);
+          // Case contained to left
+        } else if (isLeftInRange) {
+          // return the left part + ...
+          rangesToReturn.add([
+            mv.destinationRangeStart + (start - mv.sourceRangeStart), // start
+            mv.destinationRangeStart +
+                (sourceRange[1] - mv.sourceRangeStart), // end
+          ]);
+
+          // ... add the part not contained to list of future checks
+          rangesToAddForChecking.add([
+            mv.sourceRangeStart + mv.rangeLength, // start
+            end,
+          ]);
+        }
+        // Case contained to right
+        else if (isRightInRange) {
+          // return the right part + ...
+          rangesToReturn.add([
+            mv.destinationRangeStart, // start
+            mv.destinationRangeStart + (end - mv.sourceRangeStart), // end
+          ]);
+
+          // ... add the part not contained to list of future checks
+          rangesToAddForChecking.add([
+            start, // start
+            mv.sourceRangeStart - 1,
+          ]);
+        }
+        // Case not contained
+        else if (sourceRange[0] >= start && sourceRange[1] <= end) {
+          // split in 3
+          rangesToReturn.add([
+            mv.destinationRangeStart, // start
+            mv.destinationRangeStart + mv.rangeLength - 1, // end
+          ]);
+
+          rangesToAddForChecking.add([
+            start, // start
+            sourceRange[0] - 1,
+          ]);
+
+          rangesToAddForChecking.add([
+            sourceRange[1] + 1, // start
+            end,
+          ]);
+        } else {
+          rangesToAddForChecking.add([
+            start,
+            end,
+          ]);
+        }
       }
+
+      rangesToCheck.addAll(rangesToAddForChecking);
     }
-    */
+
+    return [...rangesToReturn, ...rangesToCheck];
   }
 
   static bool isInRange(List<int> range, int position) {
     return range[0] <= position && range[1] >= position;
   }
-}
-
-class SeedToSoilMapper extends GenericMapper {
-  SeedToSoilMapper(super.mappingValues);
-}
-
-class SoilToFertilizerMapper extends GenericMapper {
-  SoilToFertilizerMapper(super.mappingValues);
-}
-
-class FertilizerToWaterMapper extends GenericMapper {
-  FertilizerToWaterMapper(super.mappingValues);
-}
-
-class WaterToLightMapper extends GenericMapper {
-  WaterToLightMapper(super.mappingValues);
-}
-
-class LightToTemperature extends GenericMapper {
-  LightToTemperature(super.mappingValues);
-}
-
-class TemperatureToHumidity extends GenericMapper {
-  TemperatureToHumidity(super.mappingValues);
-}
-
-class HumidityToLocation extends GenericMapper {
-  HumidityToLocation(super.mappingValues);
 }
 
 class MappingEngine {
@@ -107,16 +149,18 @@ class MappingEngine {
     return result;
   }
 
-  // returns locations
-  List<int> mapRange(Range range) {
-    final [start, end] = range;
-    List<int> locations = [];
+  List<Range> mapRanges(List<Range> ranges) {
+    for (var mapper in mappers) {
+      List<Range> newRanges = [];
 
-    for (int seed = start; seed <= end; seed++) {
-      locations.add(map(seed));
+      for (var range in ranges) {
+        newRanges.addAll(mapper.mapRange(range));
+      }
+
+      ranges = newRanges;
     }
 
-    return locations;
+    return ranges;
   }
 }
 
@@ -134,28 +178,17 @@ class Garden {
     return getLocationForGivenSeeds(seeds);
   }
 
-  int getMinLocationFromRanges() {
-    var currCount = 0;
-
-    const int maxInteger = 0x7FFFFFFFFFFFFFFF;
-    var currMin = maxInteger;
+  List<int> getStartRangesOfLocationForSeeds() {
+    var ranges = <Range>[];
 
     for (var i = 0; i < seeds.length; i += 2) {
       final start = seeds[i];
       final length = seeds[i + 1];
 
-      var seedsFromRanges = listFromRange(start, length);
-
-      currMin = min(
-        currMin,
-        getLocationForGivenSeeds(seedsFromRanges).reduce(min),
-      );
-
-      currCount += seedsFromRanges.length;
-      print(currCount);
+      ranges.add([start, start + length - 1]);
     }
 
-    return currMin;
+    return mappingEngine.mapRanges(ranges).map((e) => e[0]).toList();
   }
 
   List<int> listFromRange(int start, int length) =>

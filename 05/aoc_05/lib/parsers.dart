@@ -3,13 +3,7 @@ import 'package:aoc_05/entities.dart';
 enum ParsingState {
   none,
   // seeds, don't needed
-  seedsToSoil,
-  soilToFertilizer,
-  fertilizerToWater,
-  waterToLight,
-  lightToTemperature,
-  temperatureToHumidity,
-  humidityToLocation,
+  mappers,
 }
 
 Garden parseText(String text) {
@@ -28,30 +22,9 @@ Garden parseText(String text) {
         continue;
       }
 
-      final mapper = switch (parsingState) {
-        ParsingState.seedsToSoil => SeedToSoilMapper(
-            mappingValuesList,
-          ),
-        ParsingState.soilToFertilizer => SoilToFertilizerMapper(
-            mappingValuesList,
-          ),
-        ParsingState.fertilizerToWater => FertilizerToWaterMapper(
-            mappingValuesList,
-          ),
-        ParsingState.waterToLight => WaterToLightMapper(
-            mappingValuesList,
-          ),
-        ParsingState.lightToTemperature => LightToTemperature(
-            mappingValuesList,
-          ),
-        ParsingState.temperatureToHumidity => TemperatureToHumidity(
-            mappingValuesList,
-          ),
-        ParsingState.humidityToLocation => HumidityToLocation(
-            mappingValuesList,
-          ),
-        ParsingState.none => throw Exception("Unexpexted parsing state"),
-      };
+      final mapper = GenericMapper(
+        mappingValuesList,
+      );
 
       mappers.add(mapper);
 
@@ -79,19 +52,7 @@ Garden parseText(String text) {
     if (line.contains('seeds')) {
       seeds = line.split(': ')[1].split(' ').map((e) => int.parse(e)).toList();
     } else if (line.contains('seed-to-soil')) {
-      parsingState = ParsingState.seedsToSoil;
-    } else if (line.contains('soil-to-fertilizer')) {
-      parsingState = ParsingState.soilToFertilizer;
-    } else if (line.contains('fertilizer-to-water')) {
-      parsingState = ParsingState.fertilizerToWater;
-    } else if (line.contains('water-to-light')) {
-      parsingState = ParsingState.waterToLight;
-    } else if (line.contains('light-to-temperature')) {
-      parsingState = ParsingState.lightToTemperature;
-    } else if (line.contains('temperature-to-humidity')) {
-      parsingState = ParsingState.temperatureToHumidity;
-    } else if (line.contains('humidity-to-location')) {
-      parsingState = ParsingState.humidityToLocation;
+      parsingState = ParsingState.mappers;
     }
   }
 
